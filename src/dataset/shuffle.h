@@ -93,7 +93,7 @@ inline void mix_and_shuffle(std::vector<std::string>& files,
               << " files" << std::endl;
 
     std::srand(time(NULL));
-    uint64_t number_out_files   = 10;
+    uint64_t number_out_files   = num_files;
     uint64_t positions_per_file = total_positions / number_out_files;
 
     std::cout << "Creating " << number_out_files << " files with " << positions_per_file
@@ -101,7 +101,7 @@ inline void mix_and_shuffle(std::vector<std::string>& files,
 
     Position p[1];
     for (int i = 0; i < number_out_files; i++) {
-        std::string out_name = out_dir + "berserk9dev2.d9." + std::to_string(i) + ".bin";
+        std::string out_name = out_dir + "smallbrain_shuffle.d9." + std::to_string(i) + ".bin";
 
         std::cout << "Writing to " << out_name << std::endl;
         FILE*  fout = fopen(out_name.c_str(), "wb");
