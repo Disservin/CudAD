@@ -33,13 +33,12 @@ int main()
 
     const string data_path = "E:\\Github\\CudAD\\src\\resources\\data\\trained_txt\\";
     const string data_output_path = "E:\\Github\\CudAD\\src\\resources\\data\\";
-    const string output = "E:\\Github\\CudAD\\src\\resources\\runs\\L2_256_4\\";
+    const string output = "E:\\Github\\CudAD\\src\\resources\\runs\\L2_256_5\\";
 
-    /*
-
+    /********
     convert fen to bin
+    *********/
 
-     */
     // for (int i = 0; i <= 11; i++)
     // {
     //     std::string filename = data_path + "data" + to_string(i) + ".txt";
@@ -47,7 +46,9 @@ int main()
     //     write(data_output_path + "data" + to_string(i) + ".bin", ds);
     // }
 
-    // Shuffle data
+    /********
+    Shuffle data
+    *********/
     //  vector<string> files{};
     //  for (int i = 0; i <= 11; i++)
     //  {
@@ -55,25 +56,32 @@ int main()
     //  }
     //  mix_and_shuffle(files, data_output_path, 3);
 
-    // Training
+    /********
+    Training
+    *********/
     vector<string> files{};
-    // for (int i = 1; i <= 6; i++)
-    //     files.push_back(data_path + "shuffled_" + to_string(i) + ".bin");
+    for (int i = 1; i <= 6; i++)
+        files.push_back(data_output_path + "shuffled_" + to_string(i) + ".bin");
 
-    for (int i = 0; i <= 3; i++)
-        files.push_back(data_output_path + "smallbrain_shuffle.d9." + to_string(i) + ".bin");
+    // for (int i = 0; i <= 3; i++)
+    //     files.push_back(data_output_path + "smallbrain_shuffle.d9." + to_string(i) + ".bin");
 
-    // Trainer<Smallbrain> trainer{};
-    // trainer.fit(files, vector<string>{data_output_path + "smallbrain_shuffle.d9.0.bin"}, output);
+    Trainer<Smallbrain> trainer{};
+    trainer.fit(files, vector<string>{data_output_path + "shuffled_1.bin"}, output);
 
-    auto layers = Smallbrain::get_layers();
-    Network network{layers};
-    network.loadWeights(output + "weights-epoch270.nnue");
-    BatchLoader batch_loader{files, 16384};
-    batch_loader.start();
+    /********
+    Quantize weights
+    *********/
+    // auto layers = Smallbrain::get_layers();
+    // Network network{layers};
+    // network.loadWeights(output + "weights-epoch400.nnue");
+    // std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    // test_fen<Smallbrain>(network, fen);
 
-    computeScalars<Smallbrain>(batch_loader, network, 1024);
-    quantitize_shallow(output + "270.net", network, 32, 512);
+    // BatchLoader batch_loader{files, 16384};
+    // batch_loader.start();
+    // computeScalars<Smallbrain>(batch_loader, network, 1024);
+    // quantitize_shallow(output + "default.nnue", network, 256, 1024);
 
     // close();
 }

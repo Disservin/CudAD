@@ -34,126 +34,114 @@
 
 #include <tuple>
 
-class Smallbrain
-{
+class Smallbrain{
 
-  public:
-    static constexpr int Inputs = 12 * 64;
-    static constexpr int L2 = 64 * 4;
-    static constexpr int Outputs = 1;
-    static constexpr float SigmoidScalar = 2.5 / 400;
+public:
+static constexpr int   Inputs        = 12 * 64;
+static constexpr int   L2            = 256;
+static constexpr int   Outputs       = 1;
+static constexpr float SigmoidScalar = 2.5 / 400;
 
-    static Optimiser *get_optimiser()
-    {
-        Adam *optim = new Adam();
-        optim->lr = 1e-2;
-        optim->beta1 = 0.95;
-        optim->beta2 = 0.999;
+static Optimiser*      get_optimiser() {
+    Adam* optim  = new Adam();
+    optim->lr    = 1e-2;
+    optim->beta1 = 0.95;
+    optim->beta2 = 0.999;
+    return optim;
+}
 
-        return optim;
-    }
+static Loss* get_loss_function() {
+    MPE* loss_f = new MPE(2.5, false);
 
-    static Loss *get_loss_function()
-    {
-        MPE *loss_f = new MPE(2.5, false);
+    return loss_f;
+}
 
-        return loss_f;
-    }
+static std::vector<LayerInterface*> get_layers() {
+    /********
+    Training
+    *********/
+    auto* l1 = new DenseLayer<Inputs, L2, ReLU>();
+    auto* l2  = new DenseLayer<L2, Outputs, Sigmoid>();
 
-    static std::vector<LayerInterface *> get_layers()
-    {
-        auto *l1 = new DenseLayer<Inputs, L2, ReLU>(); // training
-        // auto *l1 = new DenseLayer<Inputs, L2, Linear>(); // computeScalars for net
+    /********
+    Quantisation
+    *********/
+    // auto* l1 = new DenseLayer<Inputs, L2, Linear>();
+    // auto* l2  = new DenseLayer<L2, Outputs, Sigmoid>();
+    
+    dynamic_cast<Sigmoid*>(l2->getActivationFunction())->scalar = SigmoidScalar;
 
-        auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
-        dynamic_cast<Sigmoid *>(l2->getActivationFunction())->scalar = SigmoidScalar;
+    return std::vector<LayerInterface*> {l1, l2};
+}
 
-        return std::vector<LayerInterface *>{l1, l2};
-    }
+static void assign_inputs_batch(DataSet&       positions,
+                                SparseInput&   in1,
+                                SparseInput&   in2,
+                                SArray<float>& output,
+                                SArray<bool>&  output_mask) {
 
-    static void assign_inputs_batch(DataSet &positions, SparseInput &in1, SparseInput &in2, SArray<float> &output,
-                                    SArray<bool> &output_mask)
-    {
+    ASSERT(positions.positions.size() == in1.n);
+    ASSERT(positions.positions.size() == in2.n);
 
-        ASSERT(positions.positions.size() == in1.n);
-        ASSERT(positions.positions.size() == in2.n);
-
-        in1.clear();
-        in2.clear();
-        output_mask.clear();
+    in1.clear();
+    in2.clear();
+    output_mask.clear();
 
 #pragma omp parallel for schedule(static) num_threads(8)
-        for (int i = 0; i < positions.positions.size(); i++)
-            assign_input(positions.positions[i], in1, in2, output, output_mask, i);
+    for (int i = 0; i < positions.positions.size(); i++)
+        assign_input(positions.positions[i], in1, in2, output, output_mask, i);
+}
+
+
+static int index(Square psq, Piece p, Square kingSquare, Color view) {
+    //if(view != WHITE) {
+    //    psq = mirrorVertically(psq);
+    //}
+
+    return psq +
+           (getPieceType (p)         ) * 64 +
+           (getPieceColor(p) != WHITE) * 64 * 6;
+}
+
+static void assign_input(Position&      p,
+                         SparseInput&   in1,
+                         SparseInput&   in2,
+                         SArray<float>& output,
+                         SArray<bool>&  output_mask,
+                         int            id) {
+
+
+    BB     bb {p.m_occupancy};
+    int    idx = 0;
+
+    while (bb) {
+        Square sq                    = bitscanForward(bb);
+        Piece  pc                    = p.m_pieces.getPiece(idx);
+
+        auto view = p.m_meta.getActivePlayer();
+        auto inp_idx = index(sq, pc, 0, view);
+
+        in1.set(id, inp_idx);
+
+        bb = lsbReset(bb);
+        idx++;
     }
 
-    static int king_square_index(Square relative_king_square)
-    {
+    float p_value = p.m_result.score;
+    float w_value = p.m_result.wdl;
 
-        // clang-format off
-        constexpr int indices[N_SQUARES] {
-            0,  1,  2,  3,  4,  5,  6,  7,
-            8,  9, 10, 10, 11, 11, 12, 13,
-           14, 14, 15, 15, 16, 16, 17, 17,
-           14, 14, 15, 15, 16, 16, 17, 17,
-           18, 18, 18, 18, 19, 19, 19, 19,
-           18, 18, 18, 18, 19, 19, 19, 19,
-           18, 18, 18, 18, 19, 19, 19, 19,
-           18, 18, 18, 18, 19, 19, 19, 19,
-        };
-        // clang-format on
+    // flip if black is to move -> relative network style
+    //if (p.m_meta.getActivePlayer() == BLACK) {
+    //   p_value = -p_value;
+    //    w_value = -w_value;
+    //}
 
-        return indices[relative_king_square];
-    }
+    float p_target = 1 / (1 + expf(-p_value * SigmoidScalar));
+    float w_target = (w_value + 1) / 2.0f;
 
-    static int index(Square psq, Piece p, Square kingSquare, Color view)
-    {
-        return mirrorVertically(psq) + (getPieceType(p)) * 64 + (getPieceColor(p) == BLACK) * 64 * 6;
-    }
-
-    static void assign_input(Position &p, SparseInput &in1, SparseInput &in2, SArray<float> &output,
-                             SArray<bool> &output_mask, int id)
-    {
-
-        constexpr static float phase_values[6]{0, 1, 1, 2, 4, 0};
-
-        // track king squares
-        Square wKingSq = p.getKingSquare<WHITE>();
-        Square bKingSq = p.getKingSquare<BLACK>();
-
-        BB bb{p.m_occupancy};
-        int idx = 0;
-
-        while (bb)
-        {
-            Square sq = bitscanForward(bb);
-            Piece pc = p.m_pieces.getPiece(idx);
-
-            auto inp_idx = index(sq, pc, 0, 0);
-
-            in1.set(id, inp_idx);
-
-            bb = lsbReset(bb);
-            idx++;
-        }
-
-        float p_value = p.m_result.score;
-        float w_value = p.m_result.wdl;
-
-        // flip if black is to move -> relative network style
-        //        if (p.m_meta.getActivePlayer() == BLACK) {
-        //            p_value = -p_value;
-        //            w_value = -w_value;
-        //        }
-
-        float p_target = 1 / (1 + expf(-p_value * SigmoidScalar));
-        float w_target = (w_value + 1) / 2.0f;
-
-        //    int   output_bucket = (bitCount(p.m_occupancy) - 1) / 4;
-
-        output(id) = (p_target + w_target) / 2;
-        output_mask(id) = true;
-    }
+    output(id)      = (p_target + w_target) / 2;
+    output_mask(id) = true;
+}
 };
 
 #endif // CUDAD_SRC_ARCHS_SMALLBRAIN_H_
