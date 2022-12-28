@@ -34,114 +34,129 @@
 
 #include <tuple>
 
-class Smallbrain{
+class Smallbrain
+{
 
-public:
-static constexpr int   Inputs        = 12 * 64;
-static constexpr int   L2            = 512;
-static constexpr int   Outputs       = 1;
-static constexpr float SigmoidScalar = 2.5 / 400;
+  public:
+    static constexpr int Inputs = 12 * 64;
+    static constexpr int L2 = 512;
+    static constexpr int Outputs = 1;
+    static constexpr float SigmoidScalar = 2.5 / 400;
 
-static Optimiser*      get_optimiser() {
-    Adam* optim  = new Adam();
-    optim->lr    = 1e-2;
-    optim->beta1 = 0.95;
-    optim->beta2 = 0.999;
-    return optim;
-}
-
-static Loss* get_loss_function() {
-    MPE* loss_f = new MPE(2.5, false);
-
-    return loss_f;
-}
-
-static std::vector<LayerInterface*> get_layers() {
-    /********
-    Training
-    *********/
-    auto* l1 = new DenseLayer<Inputs, L2, ReLU>();
-    auto* l2  = new DenseLayer<L2, Outputs, Sigmoid>();
-
-    /********
-    Quantisation
-    *********/
-    // auto* l1 = new DenseLayer<Inputs, L2, Linear>();
-    // auto* l2  = new DenseLayer<L2, Outputs, Sigmoid>();
-    
-    dynamic_cast<Sigmoid*>(l2->getActivationFunction())->scalar = SigmoidScalar;
-
-    return std::vector<LayerInterface*> {l1, l2};
-}
-
-static void assign_inputs_batch(DataSet&       positions,
-                                SparseInput&   in1,
-                                SparseInput&   in2,
-                                SArray<float>& output,
-                                SArray<bool>&  output_mask) {
-
-    ASSERT(positions.positions.size() == in1.n);
-    ASSERT(positions.positions.size() == in2.n);
-
-    in1.clear();
-    in2.clear();
-    output_mask.clear();
-
-#pragma omp parallel for schedule(static) num_threads(8)
-    for (int i = 0; i < positions.positions.size(); i++)
-        assign_input(positions.positions[i], in1, in2, output, output_mask, i);
-}
-
-
-static int index(Square psq, Piece p, Square kingSquare, Color view) {
-    //if(view != WHITE) {
-    //    psq = mirrorVertically(psq);
-    //}
-
-    return psq +
-           (getPieceType (p)         ) * 64 +
-           (getPieceColor(p) != WHITE) * 64 * 6;
-}
-
-static void assign_input(Position&      p,
-                         SparseInput&   in1,
-                         SparseInput&   in2,
-                         SArray<float>& output,
-                         SArray<bool>&  output_mask,
-                         int            id) {
-
-
-    BB     bb {p.m_occupancy};
-    int    idx = 0;
-
-    while (bb) {
-        Square sq                    = bitscanForward(bb);
-        Piece  pc                    = p.m_pieces.getPiece(idx);
-
-        auto view = p.m_meta.getActivePlayer();
-        auto inp_idx = index(sq, pc, 0, view);
-
-        in1.set(id, inp_idx);
-
-        bb = lsbReset(bb);
-        idx++;
+    static Optimiser *get_optimiser()
+    {
+        Adam *optim = new Adam();
+        optim->lr = 1e-2;
+        optim->beta1 = 0.95;
+        optim->beta2 = 0.999;
+        return optim;
     }
 
-    float p_value = p.m_result.score;
-    float w_value = p.m_result.wdl;
+    static Loss *get_loss_function()
+    {
+        MPE *loss_f = new MPE(2.5, false);
 
-    // flip if black is to move -> relative network style
-    //if (p.m_meta.getActivePlayer() == BLACK) {
-    //   p_value = -p_value;
-    //    w_value = -w_value;
-    //}
+        return loss_f;
+    }
 
-    float p_target = 1 / (1 + expf(-p_value * SigmoidScalar));
-    float w_target = (w_value + 1) / 2.0f;
+    static std::vector<LayerInterface *> get_layers()
+    {
+        /********
+        Training
+        *********/
 
-    output(id)      = (p_target + w_target) / 2;
-    output_mask(id) = true;
-}
+        auto *l1 = new DenseLayer<Inputs, L2, ReLU>();
+        auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
+
+        /********
+        Quantisation
+        *********/
+        // auto *l1 = new DenseLayer<Inputs, L2, Linear>();
+        // auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
+
+        dynamic_cast<Sigmoid *>(l2->getActivationFunction())->scalar = SigmoidScalar;
+
+        return std::vector<LayerInterface *>{l1, l2};
+    }
+
+    static void assign_inputs_batch(DataSet &positions, SparseInput &in1, SparseInput &in2, SArray<float> &output,
+                                    SArray<bool> &output_mask, int epoch)
+    {
+
+        ASSERT(positions.positions.size() == in1.n);
+        ASSERT(positions.positions.size() == in2.n);
+
+        in1.clear();
+        in2.clear();
+        output_mask.clear();
+
+#pragma omp parallel for schedule(static) num_threads(8)
+        for (int i = 0; i < positions.positions.size(); i++)
+            assign_input(positions.positions[i], in1, in2, output, output_mask, i, epoch);
+    }
+
+    static int index(Square psq, Piece p, Square kingSquare, Color view)
+    {
+        /*relative*/
+        // if (view == BLACK)
+        // {
+        //     psq = mirrorVertically(psq);
+        // }
+
+        // return psq + (getPieceType(p) + (getPieceColor(p) != view) * 6) * 64;
+
+        return psq + (getPieceType(p)) * 64 + (getPieceColor(p) != WHITE) * 64 * 6;
+    }
+
+    static void assign_input(Position &p, SparseInput &in1, SparseInput &in2, SArray<float> &output,
+                             SArray<bool> &output_mask, int id, int epoch)
+    {
+
+        BB bb{p.m_occupancy};
+        int idx = 0;
+        int count = bitCount(bb);
+
+        while (bb)
+        {
+            Square sq = bitscanForward(bb);
+            Piece pc = p.m_pieces.getPiece(idx);
+
+            auto view = p.m_meta.getActivePlayer();
+            auto inp_idx = index(sq, pc, 0, view);
+
+            in1.set(id, inp_idx);
+
+            bb = lsbReset(bb);
+            idx++;
+        }
+
+        float p_value = p.m_result.score;
+        float w_value = p.m_result.wdl;
+
+        // flip if black is to move -> relative network style
+        // if (p.m_meta.getActivePlayer() == BLACK)
+        // {
+        //     p_value = -p_value;
+        //     w_value = -w_value;
+        // }
+
+        float p_target = 1 / (1 + expf(-p_value * SigmoidScalar));
+        float w_target = (w_value + 1) / 2.0f;
+
+        // original
+        // output(id) = (p_target + w_target) / 2;
+
+        // static constexpr float start_lambda = 1.0;
+        // static constexpr float end_lambda = 0.5;
+
+        // gaining epoch 300 static constexpr float lambda = 0.4;
+
+        // const float lambda = count > 6 ? start_lambda + (end_lambda - start_lambda) * ((32 - count) / 32) : 0;
+        const float lambda = count > 6 ? 0.5 : 0;
+
+        output(id) = lambda * p_target + (1 - lambda) * w_target;
+        output_mask(id) = true;
+    }
 };
 
 #endif // CUDAD_SRC_ARCHS_SMALLBRAIN_H_

@@ -116,7 +116,7 @@ class Trainer {
         for (int batch = 1; batch <= BatchesPerEpoch; batch++) {
             auto* ds = batch_loader->next();
 
-            Arch::assign_inputs_batch(*ds, get<0>(inputs), get<1>(inputs), target, target_mask);
+            Arch::assign_inputs_batch(*ds, get<0>(inputs), get<1>(inputs), target, target_mask, epoch);
 
             get<0>(inputs).column_indices.gpu_upload();
             get<1>(inputs).column_indices.gpu_upload();
@@ -169,7 +169,7 @@ class Trainer {
             temp.header.position_count = BatchSize;
             temp.positions.assign(&validation_data->positions[id1], &validation_data->positions[id2]);
 
-            Arch::assign_inputs_batch(temp, get<0>(inputs), get<1>(inputs), target, target_mask);
+            Arch::assign_inputs_batch(temp, get<0>(inputs), get<1>(inputs), target, target_mask, 0);
 
             get<0>(inputs).column_indices.gpu_upload();
             get<1>(inputs).column_indices.gpu_upload();

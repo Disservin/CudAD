@@ -27,32 +27,38 @@
 
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <sys/stat.h>
 
-template<Format format>
-inline DataSet read(const std::string& file, uint64_t count = -1) {
+template <Format format> inline DataSet read(const std::string &file, uint64_t count = -1)
+{
 
     constexpr uint64_t CHUNK_SIZE = (1 << 20);
 
     // open the file
-    FILE* f;
-    if (format == BINARY) {
+    FILE *f;
+    if (format == BINARY)
+    {
         f = fopen(file.c_str(), "rb");
-    } else if (format == TEXT) {
+    }
+    else if (format == TEXT)
+    {
         f = fopen(file.c_str(), "r");
     }
 
     // create the dataset
-    DataSet data_set {};
+    DataSet data_set{};
 
     // check if opening has worked
-    if (f == nullptr) {
+    if (f == nullptr)
+    {
         std::cout << "could not open: " << file << std::endl;
-        return DataSet {};
+        return DataSet{};
     }
 
-    if (format == BINARY) {
+    if (format == BINARY)
+    {
 
         // read the header
         fread(&data_set.header, sizeof(Header), 1, f);
@@ -60,13 +66,14 @@ inline DataSet read(const std::string& file, uint64_t count = -1) {
         // compute how much data to read
         auto data_to_read = std::min(count, data_set.header.position_count);
         data_set.positions.resize(data_to_read);
-        int chunks = std::ceil(data_to_read / (float) CHUNK_SIZE);
+        int chunks = std::ceil(data_to_read / (float)CHUNK_SIZE);
 
         // actually load
-        for (int c = 0; c < chunks; c++) {
+        for (int c = 0; c < chunks; c++)
+        {
 
             int start = c * CHUNK_SIZE;
-            int end   = c * CHUNK_SIZE + CHUNK_SIZE;
+            int end = c * CHUNK_SIZE + CHUNK_SIZE;
             if (end > data_set.positions.size())
                 end = data_set.positions.size();
             fread(&data_set.positions[start], sizeof(Position), end - start, f);
@@ -74,19 +81,32 @@ inline DataSet read(const std::string& file, uint64_t count = -1) {
             fflush(stdout);
         }
         std::cout << std::endl;
-    } else if (format == TEXT) {
+    }
+    else if (format == TEXT)
+    {
+        // std::ofstream myfile;
+        // myfile.open("H:\\data-generation\\2022-12-23-depth7\\log\\log.txt");
 
-        int  c = 0;
+        std::cout << "reading " << file << std::endl;
+        int c = 0;
         char buffer[128];
-        while (fgets(buffer, 128, f) && (c++) < count) {
+        while (fgets(buffer, 128, f) && (c++) < count)
+        {
+            // myfile << buffer << std::endl;
+
             // Remove trailing newline
             buffer[strcspn(buffer, "\n")] = 0;
-            if (c % CHUNK_SIZE == 0) {
+            if (c % CHUNK_SIZE == 0)
+            {
                 printf("\r[Reading positions] Current count=%d", c);
                 fflush(stdout);
             }
+
             data_set.positions.push_back(parseFen(std::string(buffer)));
         }
+
+        // myfile.close();
+
         printf("\r[Reading positions] Current count=%d", c - 1);
         fflush(stdout);
 
@@ -97,30 +117,34 @@ inline DataSet read(const std::string& file, uint64_t count = -1) {
     return data_set;
 }
 
-template<Format format>
-inline bool isReadable(const std::string& file) {
-    if (!std::filesystem::exists(file)) return false;
+template <Format format> inline bool isReadable(const std::string &file)
+{
+    if (!std::filesystem::exists(file))
+        return false;
 
-    if (format == BINARY) {
-        std::filesystem::path p {file};
-        auto                  size = std::filesystem::file_size(p);
+    if (format == BINARY)
+    {
+        std::filesystem::path p{file};
+        auto size = std::filesystem::file_size(p);
 
-        FILE*                 f;
+        FILE *f;
         f = fopen(file.c_str(), "rb");
-        if (f == nullptr) {
+        if (f == nullptr)
+        {
             return false;
         }
 
-        Header header {};
+        Header header{};
         fread(&header, sizeof(Header), 1, f);
 
         auto expected_size = header.position_count * sizeof(Position) + sizeof(Header);
 
         return expected_size == size;
-
-    } else {
+    }
+    else
+    {
         return true;
     }
 }
 
-#endif    // BINARYPOSITIONWRAPPER_SRC_DATASET_READER_H_
+#endif // BINARYPOSITIONWRAPPER_SRC_DATASET_READER_H_

@@ -58,6 +58,7 @@ inline void shuffle(std::vector<std::string>& files) {
 
 inline void mix_and_shuffle(std::vector<std::string>& files,
                             const std::string         out_dir,
+                            const std::string         name,
                             const int                 num_files = 10) {
     for (int i = 0; i < files.size(); i++) {
         std::cout << "Reading from " << files[i] << std::endl;
@@ -101,7 +102,7 @@ inline void mix_and_shuffle(std::vector<std::string>& files,
 
     Position p[1];
     for (int i = 0; i < number_out_files; i++) {
-        std::string out_name = out_dir + "smallbrain_shuffle.d9." + std::to_string(i) + ".bin";
+        std::string out_name = out_dir + name + std::to_string(i) + ".bin";
 
         std::cout << "Writing to " << out_name << std::endl;
         FILE*  fout = fopen(out_name.c_str(), "wb");
