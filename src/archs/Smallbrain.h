@@ -98,14 +98,15 @@ class Smallbrain
     static int index(Square psq, Piece p, Square kingSquare, Color view)
     {
         /*relative*/
-        // if (view == BLACK)
-        // {
-        //     psq = mirrorVertically(psq);
-        // }
+        if (view == BLACK)
+        {
+            psq = mirrorVertically(psq);
+        }
 
-        // return psq + (getPieceType(p) + (getPieceColor(p) != view) * 6) * 64;
+        return psq + (getPieceType(p) + (getPieceColor(p) != view) * 6) * 64;
 
-        return psq + (getPieceType(p)) * 64 + (getPieceColor(p) != WHITE) * 64 * 6;
+        // non relative
+        // return psq + (getPieceType(p)) * 64 + (getPieceColor(p) != WHITE) * 64 * 6;
     }
 
     static void assign_input(Position &p, SparseInput &in1, SparseInput &in2, SArray<float> &output,
@@ -134,27 +135,20 @@ class Smallbrain
         float w_value = p.m_result.wdl;
 
         // flip if black is to move -> relative network style
-        // if (p.m_meta.getActivePlayer() == BLACK)
-        // {
-        //     p_value = -p_value;
-        //     w_value = -w_value;
-        // }
+        if (p.m_meta.getActivePlayer() == BLACK)
+        {
+            p_value = -p_value;
+            w_value = -w_value;
+        }
 
         float p_target = 1 / (1 + expf(-p_value * SigmoidScalar));
         float w_target = (w_value + 1) / 2.0f;
 
-        // original
-        // output(id) = (p_target + w_target) / 2;
-
-        // static constexpr float start_lambda = 1.0;
-        // static constexpr float end_lambda = 0.5;
-
-        // gaining epoch 300 static constexpr float lambda = 0.4;
-
-        // const float lambda = count > 6 ? start_lambda + (end_lambda - start_lambda) * ((32 - count) / 32) : 0;
-        const float lambda = count > 6 ? 0.5 : 0;
+        static constexpr float start_lambda = 0.5;
+        static constexpr float end_lambda = 0.5;
 
         output(id) = lambda * p_target + (1 - lambda) * w_target;
+
         output_mask(id) = true;
     }
 };

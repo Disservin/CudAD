@@ -38,7 +38,7 @@ void test_fen(Network& network, const std::string& fen) {
     SArray<bool> target_mask {Arch::Outputs};
     target_mask.malloc_cpu();
 
-    Arch::assign_input(p, sp1, sp2, target, target_mask, 0);
+    Arch::assign_input(p, sp1, sp2, target, target_mask, 0, 0);
     sp1.column_indices.gpu_upload();
     sp2.column_indices.gpu_upload();
 
@@ -144,7 +144,7 @@ void computeScalars(BatchLoader& batch_loader, Network& network, int batches) {
         // get the next dataset (batch)
         auto* ds = batch_loader.next();
         // assign to the inputs and compute the target
-        Arch::assign_inputs_batch(*ds, sparse_input_1, sparse_input_2, target, target_mask);
+        Arch::assign_inputs_batch(*ds, sparse_input_1, sparse_input_2, target, target_mask, 0);
         // upload relevant data
         sparse_input_1.column_indices.gpu_upload();
         sparse_input_2.column_indices.gpu_upload();

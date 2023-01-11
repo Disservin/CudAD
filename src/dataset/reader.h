@@ -101,8 +101,11 @@ template <Format format> inline DataSet read(const std::string &file, uint64_t c
                 printf("\r[Reading positions] Current count=%d", c);
                 fflush(stdout);
             }
+            
+            const Position p = parseFen(std::string(buffer));
 
-            data_set.positions.push_back(parseFen(std::string(buffer)));
+            if (std::abs(p.m_result.score) < 31760)
+                data_set.positions.push_back(p);
         }
 
         // myfile.close();
