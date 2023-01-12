@@ -61,20 +61,27 @@ class Smallbrain
 
     static std::vector<LayerInterface *> get_layers()
     {
-        /********
-        Training
-        *********/
 
-        auto *l1 = new DenseLayer<Inputs, L2, ReLU>();
-        auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
+        DuplicateDenseLayer<Inputs, L2, ReLU> *l1 = new DuplicateDenseLayer<Inputs, L2, ReLU>();
+        l1->lasso_regularization = 1.0 / 8388608.0;
 
-        /********
-        Quantisation
-        *********/
-        // auto *l1 = new DenseLayer<Inputs, L2, Linear>();
+        DenseLayer<L2 * 2, Outputs, Sigmoid> *l2 = new DenseLayer<L2 * 2, Outputs, Sigmoid>();
+        dynamic_cast<Sigmoid *>(l2->getActivationFunction())->scalar = SigmoidScalar;
+
+        // /********
+        // Training
+        // *********/
+
+        // auto *l1 = new DenseLayer<Inputs, L2, ReLU>();
         // auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
 
-        dynamic_cast<Sigmoid *>(l2->getActivationFunction())->scalar = SigmoidScalar;
+        // /********
+        // Quantisation
+        // *********/
+        // // auto *l1 = new DenseLayer<Inputs, L2, Linear>();
+        // // auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
+
+        // dynamic_cast<Sigmoid *>(l2->getActivationFunction())->scalar = SigmoidScalar;
 
         return std::vector<LayerInterface *>{l1, l2};
     }
@@ -123,9 +130,29 @@ class Smallbrain
             Piece pc = p.m_pieces.getPiece(idx);
 
             auto view = p.m_meta.getActivePlayer();
+
+            /*
             auto inp_idx = index(sq, pc, 0, view);
 
             in1.set(id, inp_idx);
+            */
+
+            // test relative
+            auto inp_idx_w = index(sq, pc, 0, WHITE);
+            auto inp_idx_b = index(sq, pc, 0, BLACK);
+
+            if (view == WHITE)
+            {
+                in1.set(id, inp_idx_w);
+                in2.set(id, inp_idx_b);
+            }
+            else
+            {
+                in2.set(id, inp_idx_w);
+                in1.set(id, inp_idx_b);
+            }
+
+            // test
 
             bb = lsbReset(bb);
             idx++;
@@ -146,6 +173,8 @@ class Smallbrain
 
         static constexpr float start_lambda = 0.5;
         static constexpr float end_lambda = 0.5;
+
+        static constexpr int lambda = start_lambda;
 
         output(id) = lambda * p_target + (1 - lambda) * w_target;
 

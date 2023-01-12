@@ -31,7 +31,7 @@ int main()
 {
     init();
 
-    const string folder = "2022-12-30-depth-7-tb-changes";
+    const string folder = "2023-01-03-depth9-depth7-mix";
 
     // DATA
     const string data_path_txt = "H:\\data-generation\\" + folder + "\\data\\";
@@ -39,38 +39,38 @@ int main()
     const string mixed = "H:\\data-generation\\" + folder + "\\mixed\\";
 
     // TRAINING
-    const string outName = "L2_512_10";
+    const string outName = "R_L2_512_10_con";
     const string output = "H:\\CudAD\\src\\resources\\runs\\" + outName + "\\";
     const string validation = "H:\\CudAD\\src\\resources\\data\\verification\\smallbrain-verification-3.bin";
 
     int numFiles = 16;
-    string name = "smallbrain-nodes5k";
+    string name = "smallbrain-depth7-";
 
     // *************************
     // convert fen to bin
     // *************************
 
-    for (int i = 0; i <= 30; i++)
-    {
-        std::string filename = data_path_txt + "data" + to_string(i) + ".txt";
+    // for (int i = 0; i <= 30; i++)
+    // {
+    //     std::string filename = data_path_txt + "data" + to_string(i) + ".txt";
 
-        DataSet ds = read<TEXT>(filename);
-        write(data_path_bin + "data" + to_string(i) + ".bin", ds);
-    }
+    //     DataSet ds = read<TEXT>(filename);
+    //     write(data_path_bin + "data" + to_string(i) + ".bin", ds);
+    // }
 
     // *************************
     // Shuffle data
     // *************************
 
-    vector<string> files_bin{};
+    // vector<string> files_bin{};
 
-    for (int i = 0; i <= 30; i++)
-    {
-        files_bin.push_back(data_path_bin + "data" + to_string(i) + ".bin");
-    }
+    // for (int i = 0; i <= 30; i++)
+    // {
+    //     files_bin.push_back(data_path_bin + "data" + to_string(i) + ".bin");
+    // }
 
-    mix_and_shuffle_2(files_bin, mixed + name + "$.bin", numFiles);
-    files_bin.clear();
+    // mix_and_shuffle_2(files_bin, mixed + name + "$.bin", numFiles);
+    // files_bin.clear();
 
     // *************************
     // Validation
@@ -91,7 +91,11 @@ int main()
     vector<string> files{};
 
     for (int i = 1; i <= numFiles; i++)
+    {
+        std::cout << mixed + name + to_string(i) << std::endl;
+
         files.push_back(mixed + name + to_string(i) + ".bin");
+    }
 
     Trainer<Smallbrain> trainer{};
     trainer.fit(files, vector<string>{validation_name}, output);
