@@ -31,7 +31,7 @@ int main()
 {
     init();
 
-    const string folder = "2023-01-03-depth9-depth7-mix";
+    const string folder = "smallbrain-mixed";
 
     // DATA
     const string data_path_txt = "H:\\data-generation\\" + folder + "\\data\\";
@@ -39,18 +39,18 @@ int main()
     const string mixed = "H:\\data-generation\\" + folder + "\\mixed\\";
 
     // TRAINING
-    const string outName = "R_L2_512_10_con";
+    const string outName = "KB_R_L2_512_14_dfrc";
     const string output = "H:\\CudAD\\src\\resources\\runs\\" + outName + "\\";
-    const string validation = "H:\\CudAD\\src\\resources\\data\\verification\\smallbrain-verification-3.bin";
+    const string validation = "H:\\CudAD\\src\\resources\\data\\verification\\smallbrain-depth7-2023-01-28.bin";
 
-    int numFiles = 16;
+    int numFiles = 8;
     string name = "smallbrain-depth7-";
 
     // *************************
     // convert fen to bin
     // *************************
 
-    // for (int i = 0; i <= 30; i++)
+    // for (int i = 0; i <= 0; i++)
     // {
     //     std::string filename = data_path_txt + "data" + to_string(i) + ".txt";
 
@@ -64,9 +64,31 @@ int main()
 
     // vector<string> files_bin{};
 
-    // for (int i = 0; i <= 30; i++)
+    // for (int i = 1; i <= 8; i++)
     // {
-    //     files_bin.push_back(data_path_bin + "data" + to_string(i) + ".bin");
+    //     files_bin.push_back(mixed + name + to_string(i) + ".bin");
+    // }
+
+    // for (int i = 1; i <= 16; i++)
+    // {
+    //     files_bin.push_back(std::string("H:\\data-generation\\2023-01-13-depth9-depth7-depth9dfrc\\mixed\\") + name +
+    //                         to_string(i) + ".bin");
+    // }
+
+    // mix_and_shuffle_2(files_bin, std::string("H:\\data-generation\\smallbrain-mixed\\") + name + "$.bin", numFiles);
+    // files_bin.clear();
+
+    // vector<string> files_bin{};
+
+    // for (int i = 1; i <= 1; i++)
+    // {
+    //     files_bin.push_back("H:\\data-generation\\2023-01-12-depth9-frc\\mixed\\" + name + to_string(i) + ".bin");
+    // }
+
+    // for (int i = 1; i <= 16; i++)
+    // {
+    //     files_bin.push_back("H:\\data-generation\\2023-01-03-depth9-depth7-mix\\mixed\\" + name + to_string(i) +
+    //                         ".bin");
     // }
 
     // mix_and_shuffle_2(files_bin, mixed + name + "$.bin", numFiles);
@@ -83,7 +105,7 @@ int main()
     // mix_and_shuffle_2(files_bin, "H:\\CudAD\\src\\resources\\data\\verification\\" + name + "$.bin", 2);
     // files_bin.clear();
 
-    const string validation_name = mixed + name + "1.bin";
+    const string validation_name = "H:\\CudAD\\src\\resources\\data\\verification\\smallbrain-depth7-2023-01-28.bin";
     // *************************
     // Training
     // *************************
@@ -92,9 +114,9 @@ int main()
 
     for (int i = 1; i <= numFiles; i++)
     {
-        std::cout << mixed + name + to_string(i) << std::endl;
+        std::cout << std::string("H:\\data-generation\\smallbrain-mixed\\") + name + to_string(i) << std::endl;
 
-        files.push_back(mixed + name + to_string(i) + ".bin");
+        files.push_back(std::string("H:\\data-generation\\smallbrain-mixed\\") + name + to_string(i) + ".bin");
     }
 
     Trainer<Smallbrain> trainer{};

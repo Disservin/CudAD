@@ -38,7 +38,9 @@ class Smallbrain
 {
 
   public:
-    static constexpr int Inputs = 12 * 64;
+    static constexpr int Buckets = 4;
+    static constexpr int Features = 12 * 64;
+    static constexpr int Inputs = Buckets * Features;
     static constexpr int L2 = 512;
     static constexpr int Outputs = 1;
     static constexpr float SigmoidScalar = 2.5 / 400;
@@ -61,7 +63,6 @@ class Smallbrain
 
     static std::vector<LayerInterface *> get_layers()
     {
-
         DuplicateDenseLayer<Inputs, L2, ReLU> *l1 = new DuplicateDenseLayer<Inputs, L2, ReLU>();
         l1->lasso_regularization = 1.0 / 8388608.0;
 
@@ -69,14 +70,14 @@ class Smallbrain
         dynamic_cast<Sigmoid *>(l2->getActivationFunction())->scalar = SigmoidScalar;
 
         // /********
-        // Training
+        // old training
         // *********/
 
         // auto *l1 = new DenseLayer<Inputs, L2, ReLU>();
         // auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
 
         // /********
-        // Quantisation
+        // old quantisation
         // *********/
         // // auto *l1 = new DenseLayer<Inputs, L2, Linear>();
         // // auto *l2 = new DenseLayer<L2, Outputs, Sigmoid>();
@@ -102,44 +103,57 @@ class Smallbrain
             assign_input(positions.positions[i], in1, in2, output, output_mask, i, epoch);
     }
 
-    static int index(Square psq, Piece p, Square kingSquare, Color view)
+    static int king_square_index(Square k_sq)
+    {
+        // clang-format off
+        constexpr int KING_BUCKET[64]{
+            0, 0, 0, 0, 1, 1, 1, 1,
+            0, 0, 0, 0, 1, 1, 1, 1,
+            0, 0, 0, 0, 1, 1, 1, 1,
+            0, 0, 0, 0, 1, 1, 1, 1,
+            2, 2, 2, 2, 3, 3, 3, 3,
+            2, 2, 2, 2, 3, 3, 3, 3,
+            2, 2, 2, 2, 3, 3, 3, 3,
+            2, 2, 2, 2, 3, 3, 3, 3,
+        };
+        // clang-format on
+
+        return KING_BUCKET[k_sq];
+    }
+
+    template <Color view> static int index(Square psq, Piece p, Square kingSquare)
     {
         /*relative*/
         if (view == BLACK)
         {
             psq = mirrorVertically(psq);
+            kingSquare = mirrorVertically(kingSquare);
         }
 
-        return psq + (getPieceType(p) + (getPieceColor(p) != view) * 6) * 64;
-
-        // non relative
-        // return psq + (getPieceType(p)) * 64 + (getPieceColor(p) != WHITE) * 64 * 6;
+        return king_square_index(kingSquare) * Features + psq + (getPieceType(p) + (getPieceColor(p) != view) * 6) * 64;
     }
 
     static void assign_input(Position &p, SparseInput &in1, SparseInput &in2, SArray<float> &output,
                              SArray<bool> &output_mask, int id, int epoch)
     {
 
+        // track king squares
+        Square wKingSq = p.getKingSquare<WHITE>();
+        Square bKingSq = p.getKingSquare<BLACK>();
+
         BB bb{p.m_occupancy};
         int idx = 0;
         int count = bitCount(bb);
+
+        auto view = p.m_meta.getActivePlayer();
 
         while (bb)
         {
             Square sq = bitscanForward(bb);
             Piece pc = p.m_pieces.getPiece(idx);
 
-            auto view = p.m_meta.getActivePlayer();
-
-            /*
-            auto inp_idx = index(sq, pc, 0, view);
-
-            in1.set(id, inp_idx);
-            */
-
-            // test relative
-            auto inp_idx_w = index(sq, pc, 0, WHITE);
-            auto inp_idx_b = index(sq, pc, 0, BLACK);
+            auto inp_idx_w = index<WHITE>(sq, pc, wKingSq);
+            auto inp_idx_b = index<BLACK>(sq, pc, bKingSq);
 
             if (view == WHITE)
             {
@@ -151,8 +165,6 @@ class Smallbrain
                 in2.set(id, inp_idx_w);
                 in1.set(id, inp_idx_b);
             }
-
-            // test
 
             bb = lsbReset(bb);
             idx++;

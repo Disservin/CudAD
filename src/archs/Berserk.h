@@ -34,44 +34,46 @@
 
 #include <tuple>
 
-class Berserk {
+class Berserk
+{
 
-    public:
-    static constexpr int   Inputs        = 8 * 12 * 64;
-    static constexpr int   L2            = 512;
-    static constexpr int   Outputs       = 1;
+  public:
+    static constexpr int Inputs = 8 * 12 * 64;
+    static constexpr int L2 = 512;
+    static constexpr int Outputs = 1;
     static constexpr float SigmoidScalar = 1.0 / 139;
 
-    static Optimiser*      get_optimiser() {
-        Adam* optim  = new Adam();
-        optim->lr    = 1e-2;
+    static Optimiser *get_optimiser()
+    {
+        Adam *optim = new Adam();
+        optim->lr = 1e-2;
         optim->beta1 = 0.95;
         optim->beta2 = 0.999;
 
         return optim;
     }
 
-    static Loss* get_loss_function() {
-        MPE* loss_f = new MPE(2.5, false);
+    static Loss *get_loss_function()
+    {
+        MPE *loss_f = new MPE(2.5, false);
 
         return loss_f;
     }
 
-    static std::vector<LayerInterface*> get_layers() {
-        DuplicateDenseLayer<Inputs, L2, ReLU>* l1 = new DuplicateDenseLayer<Inputs, L2, ReLU>();
-        l1->lasso_regularization                  = 1.0 / 8388608.0;
+    static std::vector<LayerInterface *> get_layers()
+    {
+        DuplicateDenseLayer<Inputs, L2, ReLU> *l1 = new DuplicateDenseLayer<Inputs, L2, ReLU>();
+        l1->lasso_regularization = 1.0 / 8388608.0;
 
-        DenseLayer<L2 * 2, Outputs, Sigmoid>* l2  = new DenseLayer<L2 * 2, Outputs, Sigmoid>();
-        dynamic_cast<Sigmoid*>(l2->getActivationFunction())->scalar = SigmoidScalar;
+        DenseLayer<L2 * 2, Outputs, Sigmoid> *l2 = new DenseLayer<L2 * 2, Outputs, Sigmoid>();
+        dynamic_cast<Sigmoid *>(l2->getActivationFunction())->scalar = SigmoidScalar;
 
-        return std::vector<LayerInterface*> {l1, l2};
+        return std::vector<LayerInterface *>{l1, l2};
     }
 
-    static void assign_inputs_batch(DataSet&       positions,
-                                    SparseInput&   i0,
-                                    SparseInput&   i1,
-                                    SArray<float>& output,
-                                    SArray<bool>&  output_mask) {
+    static void assign_inputs_batch(DataSet &positions, SparseInput &i0, SparseInput &i1, SArray<float> &output,
+                                    SArray<bool> &output_mask)
+    {
         i0.clear();
         i1.clear();
         output_mask.clear();
@@ -81,60 +83,63 @@ class Berserk {
             assign_input(positions.positions[i], i0, i1, output, output_mask, i);
     }
 
-    static int king_square_index(int relative_king_square) {
-        constexpr int indices[N_SQUARES] {
-            -1, -1, -1, -1, 7, 7, 7, 7,    //
-            -1, -1, -1, -1, 7, 7, 7, 7,    //
-            -1, -1, -1, -1, 6, 6, 6, 6,    //
-            -1, -1, -1, -1, 6, 6, 6, 6,    //
-            -1, -1, -1, -1, 4, 4, 5, 5,    //
-            -1, -1, -1, -1, 4, 4, 5, 5,    //
-            -1, -1, -1, -1, 0, 1, 2, 3,    //
-            -1, -1, -1, -1, 0, 1, 2, 3,    //
+    static int king_square_index(int relative_king_square)
+    {
+        constexpr int indices[N_SQUARES]{
+            -1, -1, -1, -1, 7, 7, 7, 7, //
+            -1, -1, -1, -1, 7, 7, 7, 7, //
+            -1, -1, -1, -1, 6, 6, 6, 6, //
+            -1, -1, -1, -1, 6, 6, 6, 6, //
+            -1, -1, -1, -1, 4, 4, 5, 5, //
+            -1, -1, -1, -1, 4, 4, 5, 5, //
+            -1, -1, -1, -1, 0, 1, 2, 3, //
+            -1, -1, -1, -1, 0, 1, 2, 3, //
         };
 
         return indices[relative_king_square];
     }
 
-    static int index(Square psq, Piece p, Square kingSquare, Color view) {
-        const PieceType pieceType  = getPieceType(p);
-        const Color     pieceColor = getPieceColor(p);
+    static int index(Square psq, Piece p, Square kingSquare, Color view)
+    {
+        const PieceType pieceType = getPieceType(p);
+        const Color pieceColor = getPieceColor(p);
 
         psq ^= 56;
         kingSquare ^= 56;
 
-        const int oP  = pieceType + 6 * (pieceColor != view);
-        const int oK  = (7 * !(kingSquare & 4)) ^ (56 * view) ^ kingSquare;
+        const int oP = pieceType + 6 * (pieceColor != view);
+        const int oK = (7 * !(kingSquare & 4)) ^ (56 * view) ^ kingSquare;
         const int oSq = (7 * !(kingSquare & 4)) ^ (56 * view) ^ psq;
 
         return king_square_index(oK) * 12 * 64 + oP * 64 + oSq;
     }
 
-    static void assign_input(Position&      p,
-                             SparseInput&   i0,
-                             SparseInput&   i1,
-                             SArray<float>& output,
-                             SArray<bool>&  output_mask,
-                             int            id) {
+    static void assign_input(Position &p, SparseInput &i0, SparseInput &i1, SArray<float> &output,
+                             SArray<bool> &output_mask, int id)
+    {
 
         // track king squares
         Square wKingSq = p.getKingSquare<WHITE>();
         Square bKingSq = p.getKingSquare<BLACK>();
 
-        BB     bb {p.m_occupancy};
-        int    idx = 0;
+        BB bb{p.m_occupancy};
+        int idx = 0;
 
-        while (bb) {
-            Square sq                    = bitscanForward(bb);
-            Piece  pc                    = p.m_pieces.getPiece(idx);
+        while (bb)
+        {
+            Square sq = bitscanForward(bb);
+            Piece pc = p.m_pieces.getPiece(idx);
 
-            auto   piece_index_white_pov = index(sq, pc, wKingSq, WHITE);
-            auto   piece_index_black_pov = index(sq, pc, bKingSq, BLACK);
+            auto piece_index_white_pov = index(sq, pc, wKingSq, WHITE);
+            auto piece_index_black_pov = index(sq, pc, bKingSq, BLACK);
 
-            if (p.m_meta.getActivePlayer() == WHITE) {
+            if (p.m_meta.getActivePlayer() == WHITE)
+            {
                 i0.set(id, piece_index_white_pov);
                 i1.set(id, piece_index_black_pov);
-            } else {
+            }
+            else
+            {
                 i1.set(id, piece_index_white_pov);
                 i0.set(id, piece_index_black_pov);
             }
@@ -147,15 +152,16 @@ class Berserk {
         float w_value = p.m_result.wdl;
 
         // flip if black is to move -> relative network style
-        if (p.m_meta.getActivePlayer() == BLACK) {
+        if (p.m_meta.getActivePlayer() == BLACK)
+        {
             p_value = -p_value;
             w_value = -w_value;
         }
 
-        float p_target  = 1 / (1 + expf(-p_value * SigmoidScalar));
-        float w_target  = (w_value + 1) / 2.0f;
+        float p_target = 1 / (1 + expf(-p_value * SigmoidScalar));
+        float w_target = (w_value + 1) / 2.0f;
 
-        output(id)      = (p_target + w_target) / 2;
+        output(id) = (p_target + w_target) / 2;
         output_mask(id) = true;
     }
 };
